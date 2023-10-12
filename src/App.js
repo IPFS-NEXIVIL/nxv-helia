@@ -4,6 +4,8 @@ import { createHelia } from "helia";
 import { styled } from "@mui/material";
 import ChevronRight from "./chevron_right.svg";
 
+// .container 아래에 line, ouput, input, prompt에서
+// 스타일을 주면 비어있는 요소의 높이값이 생겨 빈 공간들이 생기고 라인들 각 문장마다 생성되는 이슈있음
 const RootDiv = styled("div")(({ theme }) => ({
   width: "100%",
   height: "100%",
@@ -128,12 +130,18 @@ function App() {
       ];
     });
 
+    //실행후 input에 처음 명령어 입력하면 에러발생하여 주석처리
     // terminalEl.current.scroll({
     //   top: window.terminal.scrollHeight,
     //   behavior: "smooth",
     // });
   };
 
+  // Input에 입력한 값
+  // Output에 출력되는 log값
+  // 위와 같은 형태로 출력을 하려했으나
+  // 비동기처리들로 인해?? title(state)값이
+  // log값들이 다 출력된 후에 출력되는 문제가 있음
   const store = async (name, content) => {
     let node = helia;
 
@@ -198,8 +206,6 @@ function App() {
       setTitle("");
     }
   };
-
-  console.log(output);
 
   return (
     <RootDiv>
