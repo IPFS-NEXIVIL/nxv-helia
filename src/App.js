@@ -19,7 +19,7 @@ const RootDiv = styled("div")(({ theme }) => ({
         display: "flex",
         maxWidth: "100%",
         padding: "8px",
-        paddingLeft: "28px",
+        paddingLeft: "22px",
         fontSize: "16px",
         lineHeight: "20px",
       },
@@ -28,7 +28,7 @@ const RootDiv = styled("div")(({ theme }) => ({
         display: "flex",
         maxWidth: "100%",
         padding: "12px",
-        paddingLeft: "28px",
+        paddingLeft: "22px",
         fontSize: "16px",
         lineHeight: "18px",
         [`&::before`]: {
@@ -59,18 +59,29 @@ const RootDiv = styled("div")(({ theme }) => ({
     },
     [`& > .container`]: {
       position: "relative",
-      padding: "0 24px",
       [`& > .line`]: {
+        position: "relative",
+        lineHeight: "1.4rem",
         [`& > .output`]: {
           lineHeight: "30px",
           [`& > #terminal`]: {
             [`& > #output`]: {
-              [`& > p`]: { margin: 0 },
+              [`& > p`]: { margin: 0, paddingLeft: "22px" },
             },
           },
         },
         [`& > .input`]: {
           backgroundColor: "#eee",
+          lineHeight: "42px",
+          position: "relative",
+          display: "flex",
+          maxWidth: "100%",
+          paddingLeft: "22px",
+          fontSize: "16px",
+          [`&::before`]: {
+            top: 0,
+            backgroundImage: `url(${ChevronRight})`,
+          },
         },
       },
     },
@@ -94,7 +105,7 @@ const RootDiv = styled("div")(({ theme }) => ({
     [`& > input`]: {
       width: "100%",
       padding: "12px",
-      paddingLeft: "28px",
+      paddingLeft: "22px",
       border: 0,
       outline: "none",
       resize: "none",
@@ -145,6 +156,7 @@ function App() {
   const store = async (name, content) => {
     let node = helia;
 
+    // setOutput(title);
     if (!helia) {
       showStatus("Creating Helia node...", COLORS.active);
 
