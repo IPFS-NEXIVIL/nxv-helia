@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/iot-test.git/static/css/main.e05c8319.css",
+    "main.js": "/iot-test.git/static/js/main.254f40c6.js",
+    "index.html": "/iot-test.git/index.html",
+    "static/media/javascript,__webpack_public_path__ = __webpack_base_uri__ = htmlWebpackPluginPublicPath;": "/iot-test.git/static/media/.1feff74faaf0efc6a044",
+    "main.e05c8319.css.map": "/iot-test.git/static/css/main.e05c8319.css.map",
+    "main.254f40c6.js.map": "/iot-test.git/static/js/main.254f40c6.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e05c8319.css",
+    "static/js/main.254f40c6.js"
+  ]
+}
