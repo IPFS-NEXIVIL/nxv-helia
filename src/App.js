@@ -1,267 +1,216 @@
-import React, { useRef, useState } from "react";
-import { unixfs } from "@helia/unixfs";
-import { createHelia } from "helia";
 import { styled } from "@mui/material";
-import ChevronRight from "./chevron_right.svg";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
+import { WebglAddon } from "xterm-addon-webgl";
+import commandsSetup from "./commands";
+import "xterm/css/xterm.css";
 
-// .container 아래에 line, ouput, input, prompt에서
-// 스타일을 주면 비어있는 요소의 높이값이 생겨 빈 공간들이 생기고 라인들 각 문장마다 생성되는 이슈있음
-const RootDiv = styled("div")(({ theme }) => ({
-  width: "100%",
-  height: "100%",
-  [`& > .console-container`]: {
-    [`& > .line`]: {
-      position: "relative",
-      borderBottom: "1px solid #eee",
-      lineHeight: "1.4rem",
-      [`& > .output`]: {
-        position: "relative",
-        display: "flex",
-        maxWidth: "100%",
-        padding: "8px",
-        paddingLeft: "28px",
-        fontSize: "16px",
-        lineHeight: "20px",
-      },
-      [`& > .input`]: {
-        position: "relative",
-        display: "flex",
-        maxWidth: "100%",
-        padding: "12px",
-        paddingLeft: "28px",
-        fontSize: "16px",
-        lineHeight: "18px",
-        [`&::before`]: {
-          top: 0,
-          backgroundImage: `url(${ChevronRight})`,
-        },
-      },
-      [`& > .prompt`]: {
-        whiteSpace: "pre-wrap",
-        overflowX: "auto",
-        [`&::before`]: {
-          position: "absolute",
-          content: '""',
-          top: "12px",
-          left: 0,
-          width: "20px",
-          height: "20px",
-          backgroundPosition: "50% 50%",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "contain",
-        },
-      },
-      [`& > .log`]: {
-        [`&:before`]: {
-          backgroundImage: "none",
-        },
-      },
-    },
-    [`& > .container`]: {
-      position: "relative",
-      padding: "0 24px",
-      [`& > .line`]: {
-        [`& > .output`]: {
-          lineHeight: "30px",
-          [`& > #terminal`]: {
-            [`& > #output`]: {
-              [`& > p`]: { margin: 0 },
-            },
-          },
-        },
-        [`& > .input`]: {
-          backgroundColor: "#eee",
-        },
-      },
-    },
-  },
-  [`& > .input-container`]: {
-    position: "relative",
-    width: "100%",
-    display: "block",
-    zIndex: 10,
-    [`&::before`]: {
-      position: "absolute",
-      content: '""',
-      top: "12px",
-      left: 0,
-      width: "20px",
-      height: "20px",
-      backgroundPosition: "50% 50%",
-      backgroundImage: `url(${ChevronRight})`,
-      backgroundRepeat: "no-repeat",
-    },
-    [`& > input`]: {
-      width: "100%",
-      padding: "12px",
-      paddingLeft: "28px",
-      border: 0,
-      outline: "none",
-      resize: "none",
-      fontSize: "16px",
-      lineHeight: "18px",
-    },
-  },
-}));
+const StyledDiv = styled("div")({
+  [`& > .terminal`]: { height: "100%" },
+});
 
 function App() {
-  const [output, setOutput] = useState([]);
-  const [helia, setHelia] = useState(null);
-  const [title, setTitle] = useState("");
-  // const [inputText, setInputText] = useState([]);
-
-  const terminalEl = useRef(null);
-
-  const COLORS = {
-    active: "#357edd",
-    success: "#0cb892",
-    error: "#ea5037",
-  };
-
-  const showStatus = (text, color, id) => {
-    setOutput((prev) => {
-      return [
-        ...prev,
-        {
-          content: text,
-          color,
-          id,
-        },
-      ];
-    });
-
-    //실행후 input에 처음 명령어 입력하면 에러발생하여 주석처리
-    // terminalEl.current.scroll({
-    //   top: window.terminal.scrollHeight,
-    //   behavior: "smooth",
-    // });
-  };
-
-  // Input에 입력한 값
-  // Output에 출력되는 log값
-  // 위와 같은 형태로 출력을 하려했으나
-  // 비동기처리들로 인해?? title(state)값이
-  // log값들이 다 출력된 후에 출력되는 문제가 있음
-  const store = async (name, content) => {
-    let node = helia;
-
-    if (!helia) {
-      showStatus("Creating Helia node...", COLORS.active);
-
-      node = await createHelia();
-
-      setHelia(node);
-    }
-
-    showStatus(
-      `Connecting to ${node.libp2p.peerId}...`,
-      COLORS.active,
-      node.libp2p.peerId
-    );
-
-    const encoder = new TextEncoder();
-
-    const fileToAdd = {
-      path: `${name}`,
-      content: encoder.encode(content),
+  const ref = useRef();
+  
+  const term = useMemo(() => {
+    const term = new Terminal();
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    const webgl = new WebglAddon();
+    term.loadAddon(webgl);
+    term.init = (el) => {
+      term.open(el);
+      fitAddon.fit();
     };
-
-    const fs = unixfs(node);
-
-    showStatus(`Adding file ${fileToAdd.path}...`, COLORS.active);
-    const cid = await fs.addFile(fileToAdd, node.blockstore);
-
-    showStatus(`Added to ${cid}`, COLORS.success, cid);
-    showStatus("Reading file...", COLORS.active);
-    const decoder = new TextDecoder();
-    let text = "";
-
-    for await (const chunk of fs.cat(cid)) {
-      text += decoder.decode(chunk, {
-        stream: true,
-      });
-    }
-
-    showStatus(`\u2514\u2500 ${name} ${text}`);
-    showStatus(`Preview: https://ipfs.io/ipfs/${cid}`, COLORS.success);
-  };
-
-  const handleSubmit = async (e) => {
-    // e.preventDefault();
-    try {
-      if (title == null || title.trim() === "") {
-        throw new Error("File content is missing...");
+    let command = "";
+    term.prompt = () => {
+      command = "";
+      term.write("\r\n$ ");
+    };
+    term.onData((e) => {
+      switch (e) {
+        case "\u0003": // Ctrl+C
+          term.write("^C");
+          term.prompt(term);
+          break;
+        case "\r": // Enter
+          runCommand(command);
+          command = "";
+          break;
+        case "\u007F": // Backspace (DEL)
+          // Do not delete the prompt
+          if (term._core.buffer.x > 2) {
+            term.write("\b \b");
+            if (command.length > 0) {
+              command = command.substr(0, command.length - 1);
+            }
+          }
+          break;
+        default: // Print all other characters for demo
+          if (
+            (e >= String.fromCharCode(0x20) &&
+              e <= String.fromCharCode(0x7e)) ||
+            e >= "\u00a0"
+          ) {
+            command += e;
+            term.write(e);
+          }
       }
-      await store(title);
-    } catch (err) {
-      showStatus(err.message, COLORS.error);
+    });
+    function onResize() {
+      fitAddon.fit();
     }
-    // setInputText((prev) => [...prev, { inputTitle: title }]);
-    setOutput((prev) => [...prev, { input: title }]);
-  };
+    window.addEventListener("resize", onResize);
+    term.disposeAll = () => {
+      window.removeEventListener("resize", onResize);
+      fitAddon.dispose();
+      webgl.dispose();
+      term.dispose();
+    };
+    return term;
+  }, []);
+  const commands = useMemo(() => {
+    return {
+      help: {
+        f: (opt) => {
+          console.log(opt);
+          const padding = 10;
+          function formatMessage(name, description) {
+            const maxLength = term.cols - padding - 3;
+            let remaining = description;
+            const d = [];
+            while (remaining.length > 0) {
+              // Trim any spaces left over from the previous line
+              remaining = remaining.trimStart();
+              // Check if the remaining text fits
+              if (remaining.length < maxLength) {
+                d.push(remaining);
+                remaining = "";
+              } else {
+                let splitIndex = -1;
+                // Check if the remaining line wraps already
+                if (remaining[maxLength] === " ") {
+                  splitIndex = maxLength;
+                } else {
+                  // Find the last space to use as the split index
+                  for (let i = maxLength - 1; i >= 0; i--) {
+                    if (remaining[i] === " ") {
+                      splitIndex = i;
+                      break;
+                    }
+                  }
+                }
+                d.push(remaining.substring(0, splitIndex));
+                remaining = remaining.substring(splitIndex);
+              }
+            }
+            const message =
+              `  \x1b[36;1m${name.padEnd(padding)}\x1b[0m ${d[0]}` +
+              d.slice(1).map((e) => `\r\n  ${" ".repeat(padding)} ${e}`);
+            return message;
+          }
+          term.writeln(
+            [
+              "Welcome to xterm.js! Try some of the commands below.",
+              "",
+              ...Object.keys(commands).map((e) =>
+                formatMessage(e, commands[e].description)
+              ),
+            ].join("\n\r")
+          );
+          term.prompt();
+        },
+        description: "Prints this help message",
+      },
+      loadtest: {
+        f: () => {
+          let testData = [];
+          let byteCount = 0;
+          for (let i = 0; i < 50; i++) {
+            let count = 1 + Math.floor(Math.random() * 79);
+            byteCount += count + 2;
+            let data = new Uint8Array(count + 2);
+            data[0] = 0x0a; // \n
+            for (let i = 1; i < count + 1; i++) {
+              data[i] = 0x61 + Math.floor(Math.random() * (0x7a - 0x61));
+            }
+            // End each line with \r so the cursor remains constant, this is what ls/tree do and improves
+            // performance significantly due to the cursor DOM element not needing to change
+            data[data.length - 1] = 0x0d; // \r
+            testData.push(data);
+          }
+          let start = performance.now();
+          for (let i = 0; i < 1024; i++) {
+            for (const d of testData) {
+              term.write(d);
+            }
+          }
+          // Wait for all data to be parsed before evaluating time
+          term.write("", () => {
+            let time = Math.round(performance.now() - start);
+            let mbs = ((byteCount / 1024) * (1 / (time / 1000))).toFixed(2);
+            term.write(
+              `\n\r\nWrote ${byteCount}kB in ${time}ms (${mbs}MB/s) using the renderer`
+            );
+            term.prompt();
+          });
+        },
+        description: "Simulate a lot of data coming from a process",
+      },
+      ...commandsSetup(term),
+    };
+  }, []);
+  const runCommand = useCallback((text) => {
+    const inputText = text
+      .trim()
+      .split(" ")
+      .map((i) => {
+        const res = i.trim();
+        if (res === "") return undefined;
+        return res;
+      })
+      .filter((i) => i !== undefined);
+    const command = inputText[0];
+    const opt = inputText
+      .map((i, idx) => {
+        if (i.startsWith("--")) {
+          return [
+            i.replace("--", ""),
+            inputText.length <= idx + 1 ||
+            (inputText[idx + 1] ?? "").startsWith("-")
+              ? true
+              : inputText[idx + 1],
+          ];
+        }
+        return undefined;
+      })
+      .filter((i) => i !== undefined);
 
-  const handleEnter = (e) => {
-    if (e.key === "Enter") {
-      handleSubmit();
-      setTitle("");
+    if (command.length > 0) {
+      term.writeln("");
+      if (command in commands) {
+        commands[command].f(Object.fromEntries(opt));
+        return;
+      }
+      term.writeln(`${command}: command not found`);
     }
-  };
+    term.prompt();
+  }, []);
+
+  useLayoutEffect(() => {
+    term.init(ref.current);
+    term.prompt();
+    return () => {
+      term.disposeAll();
+    };
+  }, []);
 
   return (
-    <RootDiv>
-      <div className="console-container">
-        <div className="line">
-          <div className="prompt output log">
-            <div className="string">
-              <span>
-                Add data to IPFS from the browser
-                <br />
-                Version : 1.0.0
-              </span>
-            </div>
-          </div>
-        </div>
-        {output && output.length > 0 && (
-          <div className="container">
-            {output.map((log, index) => (
-              <React.Fragment>
-                <div className="line">
-                  <div
-                    className="prompt input"
-                    key={index}
-                    style={{ color: "#7d7d7d" }}
-                  >
-                    {log.input}
-                  </div>
-                </div>
-                <div className="line">
-                  <div className="prompt output log response error">
-                    <div id="terminal" className="terminal" ref={terminalEl}>
-                      <div id="output">
-                        <p key={index} style={{ color: log.color }} id={log.id}>
-                          {log.content}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="input-container">
-        <input
-          autoFocus="true"
-          rows="1"
-          type="text"
-          required
-          value={title}
-          onKeyDown={handleEnter}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </div>
-    </RootDiv>
+    <StyledDiv
+      style={{ width: "100%", height: "100%", overflow: "hidden" }}
+      ref={ref}
+    ></StyledDiv>
   );
 }
 
